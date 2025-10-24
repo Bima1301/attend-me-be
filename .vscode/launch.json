@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch Development server",
+      "type": "node",
+      "runtimeExecutable": "vite",
+      "args": ["dev"],
+      "request": "launch",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "Launch Web App",
+      "request": "launch",
+      "type": "chrome",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}",
+      "sourceMaps": true
+    }
+  ]
+}
