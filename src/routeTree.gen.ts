@@ -15,6 +15,7 @@ import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-qu
 import { Route as AuthSignInRouteImport } from './routes/auth/sign-in'
 import { Route as BackofficeHomeIndexRouteImport } from './routes/_backoffice/home/index'
 import { Route as BackofficeDashboardIndexRouteImport } from './routes/_backoffice/dashboard/index'
+import { Route as BackofficeMasterDataShiftIndexRouteImport } from './routes/_backoffice/master-data/shift/index'
 
 const BackofficeRoute = BackofficeRouteImport.update({
   id: '/_backoffice',
@@ -46,6 +47,12 @@ const BackofficeDashboardIndexRoute =
     path: '/dashboard/',
     getParentRoute: () => BackofficeRoute,
   } as any)
+const BackofficeMasterDataShiftIndexRoute =
+  BackofficeMasterDataShiftIndexRouteImport.update({
+    id: '/master-data/shift/',
+    path: '/master-data/shift/',
+    getParentRoute: () => BackofficeRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -53,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/dashboard': typeof BackofficeDashboardIndexRoute
   '/home': typeof BackofficeHomeIndexRoute
+  '/master-data/shift': typeof BackofficeMasterDataShiftIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -60,6 +68,7 @@ export interface FileRoutesByTo {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/dashboard': typeof BackofficeDashboardIndexRoute
   '/home': typeof BackofficeHomeIndexRoute
+  '/master-data/shift': typeof BackofficeMasterDataShiftIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -69,6 +78,7 @@ export interface FileRoutesById {
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/_backoffice/dashboard/': typeof BackofficeDashboardIndexRoute
   '/_backoffice/home/': typeof BackofficeHomeIndexRoute
+  '/_backoffice/master-data/shift/': typeof BackofficeMasterDataShiftIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -78,8 +88,15 @@ export interface FileRouteTypes {
     | '/demo/tanstack-query'
     | '/dashboard'
     | '/home'
+    | '/master-data/shift'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth/sign-in' | '/demo/tanstack-query' | '/dashboard' | '/home'
+  to:
+    | '/'
+    | '/auth/sign-in'
+    | '/demo/tanstack-query'
+    | '/dashboard'
+    | '/home'
+    | '/master-data/shift'
   id:
     | '__root__'
     | '/'
@@ -88,6 +105,7 @@ export interface FileRouteTypes {
     | '/demo/tanstack-query'
     | '/_backoffice/dashboard/'
     | '/_backoffice/home/'
+    | '/_backoffice/master-data/shift/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -141,17 +159,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BackofficeDashboardIndexRouteImport
       parentRoute: typeof BackofficeRoute
     }
+    '/_backoffice/master-data/shift/': {
+      id: '/_backoffice/master-data/shift/'
+      path: '/master-data/shift'
+      fullPath: '/master-data/shift'
+      preLoaderRoute: typeof BackofficeMasterDataShiftIndexRouteImport
+      parentRoute: typeof BackofficeRoute
+    }
   }
 }
 
 interface BackofficeRouteChildren {
   BackofficeDashboardIndexRoute: typeof BackofficeDashboardIndexRoute
   BackofficeHomeIndexRoute: typeof BackofficeHomeIndexRoute
+  BackofficeMasterDataShiftIndexRoute: typeof BackofficeMasterDataShiftIndexRoute
 }
 
 const BackofficeRouteChildren: BackofficeRouteChildren = {
   BackofficeDashboardIndexRoute: BackofficeDashboardIndexRoute,
   BackofficeHomeIndexRoute: BackofficeHomeIndexRoute,
+  BackofficeMasterDataShiftIndexRoute: BackofficeMasterDataShiftIndexRoute,
 }
 
 const BackofficeRouteWithChildren = BackofficeRoute._addFileChildren(

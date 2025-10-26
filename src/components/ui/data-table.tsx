@@ -61,6 +61,7 @@ import {
   TableHeader,
   TableRow,
 } from "./table"
+import { Skeleton } from "./skeleton"
 import type {DragEndEvent, UniqueIdentifier} from "@dnd-kit/core";
 import type {
   ColumnDef,
@@ -68,6 +69,13 @@ import type {
   Row,
   SortingState,
   VisibilityState} from "@tanstack/react-table";
+
+// Extend ColumnMeta to include our custom properties
+declare module "@tanstack/react-table" {
+  interface ColumnMeta<TData, TValue> {
+    isCenter?: boolean;
+  }
+}
 
 
 function DraggableRow<T>({ row }: { row: Row<T> }) {
@@ -86,11 +94,17 @@ function DraggableRow<T>({ row }: { row: Row<T> }) {
         transition: transition,
       }}
     >
-      {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
-          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-        </TableCell>
-      ))}
+      {row.getVisibleCells().map((cell) => {
+        const isCenter = cell.column.columnDef.meta?.isCenter;
+        return (
+          <TableCell 
+            key={cell.id}
+            className={isCenter ? "text-center" : ""}
+          >
+            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+          </TableCell>
+        )
+      })}
     </TableRow>
   )
 }
@@ -106,10 +120,14 @@ interface DataTableProps<T> {
   addButtonText?: string
   onAddClick?: () => void
   className?: string
+  isLoading?: boolean
+  filters?: { page?: number; rows?: number }
+  setFilters?: (filters: { page?: number; rows?: number }) => void
+  totalRows?: number
 }
 
 export function DataTable<T extends Record<string, any>>({
-  data: initialData,
+  data: initialData = [],
   columns,
   enableDrag = false,
   enableSelection = false,
@@ -119,8 +137,16 @@ export function DataTable<T extends Record<string, any>>({
   addButtonText = "Add Item",
   onAddClick,
   className = "",
+  isLoading = false,
+  filters,
+  setFilters,
+  totalRows,
 }: DataTableProps<T>) {
   const [data, setData] = React.useState(() => initialData)
+
+  React.useEffect(() => {
+    setData(initialData)
+  }, [initialData])
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
@@ -152,7 +178,8 @@ export function DataTable<T extends Record<string, any>>({
       columnVisibility,
       rowSelection,
       columnFilters,
-      pagination,
+      // Only use internal pagination when external filters are not provided
+      ...(filters && setFilters ? {} : { pagination }),
     },
     getRowId: (row, index) => (row as any).id?.toString() || index.toString(),
     enableRowSelection: enableSelection,
@@ -160,10 +187,12 @@ export function DataTable<T extends Record<string, any>>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    // Only use internal pagination handlers when external filters are not provided
+    ...(filters && setFilters ? {} : { onPaginationChange: setPagination }),
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    // Only enable pagination model when external filters are not provided
+    ...(filters && setFilters ? {} : { getPaginationRowModel: getPaginationRowModel() }),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
@@ -197,8 +226,13 @@ export function DataTable<T extends Record<string, any>>({
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
+                      const isCenter = header.column.columnDef.meta?.isCenter;
                       return (
-                        <TableHead key={header.id} colSpan={header.colSpan}>
+                        <TableHead 
+                          key={header.id} 
+                          colSpan={header.colSpan}
+                          className={isCenter ? "text-center" : ""}
+                        >
                           {header.isPlaceholder
                             ? null
                             : flexRender(
@@ -237,35 +271,56 @@ export function DataTable<T extends Record<string, any>>({
       ) : (
         <Table>
           <TableHeader className="bg-muted sticky top-0 z-10">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => {
+                      const isCenter = header.column.columnDef.meta?.isCenter;
+                      return (
+                        <TableHead 
+                          key={header.id} 
+                          colSpan={header.colSpan}
+                          className={isCenter ? "text-center" : ""}
+                        >
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )}
+                        </TableHead>
+                      )
+                    })}
+                  </TableRow>
+                ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              Array.from({ length: filters?.rows || 10 }).map((_, index) => (
+                <TableRow key={index}>
+                  {columns.map((_col, colIndex) => (
+                    <TableCell key={colIndex}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const isCenter = cell.column.columnDef.meta?.isCenter;
+                    return (
+                      <TableCell 
+                        key={cell.id}
+                        className={isCenter ? "text-center" : ""}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
@@ -286,7 +341,7 @@ export function DataTable<T extends Record<string, any>>({
 
   return (
     <div className="w-full flex-col justify-start gap-6">
-      <div className="flex items-center justify-between px-4 lg:px-6">
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           {enableColumnVisibility && (
             <DropdownMenu>
@@ -332,85 +387,157 @@ export function DataTable<T extends Record<string, any>>({
         </div>
       </div>
       
-      <div className="relative flex flex-col gap-4 overflow-auto px-4 lg:px-6">
+      <div className="relative flex flex-col gap-4 overflow-auto py-3">
         <TableContent />
         
         {enablePagination && (
-        <div className="flex items-center justify-between px-4">
-          <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-            {table.getFilteredSelectedRowModel().rows.length} of{" "}
-            {table.getFilteredRowModel().rows.length} row(s) selected.
-          </div>
+        <div className="flex items-center justify-end px-4">
           <div className="flex w-full items-center gap-8 lg:w-fit">
-            <div className="hidden items-center gap-2 lg:flex">
-              <Label htmlFor="rows-per-page" className="text-sm font-medium">
-                Rows per page
-              </Label>
-              <Select
-                value={`${table.getState().pagination.pageSize}`}
-                onValueChange={(value) => {
-                  table.setPageSize(Number(value))
-                }}
-              >
-                <SelectTrigger size="sm" className="w-20" id="rows-per-page">
-                  <SelectValue
-                    placeholder={table.getState().pagination.pageSize}
-                  />
-                </SelectTrigger>
-                <SelectContent side="top">
-                  {[10, 20, 30, 40, 50].map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex w-fit items-center justify-center text-sm font-medium">
-              Page {table.getState().pagination.pageIndex + 1} of{" "}
-              {table.getPageCount()}
-            </div>
-            <div className="ml-auto flex items-center gap-2 lg:ml-0">
-              <Button
-                variant="outline"
-                className="hidden h-8 w-8 p-0 lg:flex"
-                onClick={() => table.setPageIndex(0)}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to first page</span>
-                <IconChevronsLeft />
-              </Button>
-              <Button
-                variant="outline"
-                className="size-8"
-                size="icon"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                <span className="sr-only">Go to previous page</span>
-                <IconChevronLeft />
-              </Button>
-              <Button
-                variant="outline"
-                className="size-8"
-                size="icon"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to next page</span>
-                <IconChevronRight />
-              </Button>
-              <Button
-                variant="outline"
-                className="hidden size-8 lg:flex"
-                size="icon"
-                onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                disabled={!table.getCanNextPage()}
-              >
-                <span className="sr-only">Go to last page</span>
-                <IconChevronsRight />
-              </Button>
-            </div>
+            {filters && setFilters ? (
+              <>
+                <div className="hidden items-center gap-2 lg:flex">
+                  <Label htmlFor="rows-per-page" className="text-sm font-medium">
+                    Rows per page
+                  </Label>
+                  <Select
+                    value={`${filters.rows || 10}`}
+                    onValueChange={(value) => {
+                      setFilters({ ...filters, rows: Number(value), page: 1 })
+                    }}
+                  >
+                    <SelectTrigger size="sm" className="w-20" id="rows-per-page">
+                      <SelectValue
+                        placeholder={filters.rows || 10}
+                      />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 30, 50, 100].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                          {pageSize}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex w-fit items-center justify-center text-sm font-medium">
+                  Page {(filters.page || 1)} of{" "}
+                  {Math.ceil((totalRows || 0) / (filters.rows || 10)) || 1}
+                </div>
+                <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                  <Button
+                    variant="outline"
+                    className="hidden h-8 w-8 p-0 lg:flex"
+                    onClick={() => setFilters({ ...filters, page: 1 })}
+                    disabled={(filters.page || 1) === 1}
+                  >
+                    <span className="sr-only">Go to first page</span>
+                    <IconChevronsLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-8"
+                    size="icon"
+                    onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
+                    disabled={(filters.page || 1) === 1}
+                  >
+                    <span className="sr-only">Go to previous page</span>
+                    <IconChevronLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-8"
+                    size="icon"
+                    onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
+                    disabled={(filters.page || 1) >= Math.ceil((totalRows || 0) / (filters.rows || 10))}
+                  >
+                    <span className="sr-only">Go to next page</span>
+                    <IconChevronRight />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="hidden size-8 lg:flex"
+                    size="icon"
+                    onClick={() => setFilters({ ...filters, page: Math.ceil((totalRows || 0) / (filters.rows || 10)) })}
+                    disabled={(filters.page || 1) >= Math.ceil((totalRows || 0) / (filters.rows || 10))}
+                  >
+                    <span className="sr-only">Go to last page</span>
+                    <IconChevronsRight />
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hidden items-center gap-2 lg:flex">
+                  <Label htmlFor="rows-per-page" className="text-sm font-medium">
+                    Rows per page
+                  </Label>
+                  <Select
+                    value={`${table.getState().pagination.pageSize}`}
+                    onValueChange={(value) => {
+                      table.setPageSize(Number(value))
+                    }}
+                  >
+                    <SelectTrigger size="sm" className="w-20" id="rows-per-page">
+                      <SelectValue
+                        placeholder={table.getState().pagination.pageSize}
+                      />
+                    </SelectTrigger>
+                    <SelectContent side="top">
+                      {[10, 30, 50, 100].map((pageSize) => (
+                        <SelectItem key={pageSize} value={`${pageSize}`}>
+                          {pageSize}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex w-fit items-center justify-center text-sm font-medium">
+                  Page {table.getState().pagination.pageIndex + 1} of{" "}
+                  {table.getPageCount()}
+                </div>
+                <div className="ml-auto flex items-center gap-2 lg:ml-0">
+                  <Button
+                    variant="outline"
+                    className="hidden h-8 w-8 p-0 lg:flex"
+                    onClick={() => table.setPageIndex(0)}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to first page</span>
+                    <IconChevronsLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-8"
+                    size="icon"
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                  >
+                    <span className="sr-only">Go to previous page</span>
+                    <IconChevronLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="size-8"
+                    size="icon"
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to next page</span>
+                    <IconChevronRight />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="hidden size-8 lg:flex"
+                    size="icon"
+                    onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+                    disabled={!table.getCanNextPage()}
+                  >
+                    <span className="sr-only">Go to last page</span>
+                    <IconChevronsRight />
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
         )}

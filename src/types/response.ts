@@ -4,10 +4,7 @@ export type TResponse<T> = {
     content: T | null;
     message: string;
     errors:
-    | Array<{
-        field: string;
-        message: string;
-    }>
+    | Array<string>
     | null;
 };
 
@@ -25,10 +22,7 @@ export type TExcelMimeTypes =
 
 export interface IApiError {
     message: string;
-    errors?: Array<{
-        field: string;
-        message: string;
-    }>;
+    errors?: Array<string>;
     status?: number;
     code?: string;
 }
